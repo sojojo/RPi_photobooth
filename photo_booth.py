@@ -18,7 +18,7 @@ GPIO.output(BUTTON_LED, True)
 GPIO.output(PRINT_LED, False)
 
 while True:
-  if (GPIO.input(SWITCH)):
+  if (GPIO.input(SWITCH) or raw_input() != None):
     snap = 0
     while snap < 4:
       print("pose!")
