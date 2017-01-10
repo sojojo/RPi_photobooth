@@ -38,7 +38,11 @@ def run_photobooth():
           time.sleep(0.1)
         GPIO.output(POSE_LED, False)
         print("SNAP")
-        gpout = subprocess.check_output("gphoto2 --capture-image-and-download --filename /home/pi/photobooth_images/photobooth%H%M%S.jpg", stderr=subprocess.STDOUT, shell=True)
+
+        #take photo and save with gphoto2
+        photo_file = "/home/pi/photobooth_images/photobooth%H%M%S.jpg"
+        gphoto2_capture_args = "gphoto2 --capture-image-and-download --filename  %s" % photo_file
+        gpout = subprocess.check_output(gphoto2_capture_args, stderr=subprocess.STDOUT, shell=True)
         print(gpout)
         if "ERROR" not in gpout: 
           snap += 1

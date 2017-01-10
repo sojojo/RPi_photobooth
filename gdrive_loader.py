@@ -61,10 +61,10 @@ def create_new_gdrive_folder(drive):
 
 
 # upload the files (and convert if necessary)
-def upload_files_to_gdrive(drive, files):
+def upload_files_to_gdrive(drive, files=FILES):
   folder = create_new_gdrive_folder(drive)
   folder_id = folder.get('id')
-  for filename, mimeType in FILES:
+  for filename, mimeType in files:
     metadata = {'name':filename, 'parents': [ folder_id ]}
     if mimeType:
       metadata['mimeType'] = mimeType
@@ -88,5 +88,5 @@ def download_pdf_from_gdrive(res):
 
 # TEST: standard order
 drive = authorize_gdrive_api()
-res = upload_files_to_gdrive(drive, None)
+res = upload_files_to_gdrive(drive)
 # download_pdf_from_gdrive(res)
