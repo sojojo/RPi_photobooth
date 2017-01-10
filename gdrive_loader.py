@@ -16,6 +16,7 @@ SCOPES = 'https://www.googleapis.com/auth/drive.file'
 PDF_MIMETYPE = 'application/pdf'
 FOLDER_MIMETYPE = 'application/vnd.google-apps.folder'
 GDOCS_MIMETYPE = 'application/vnd.google-apps.document'
+PHOTOBOOTH_ROOT = 'photobooth'
 
 # sample test files
 FILES = (
@@ -35,9 +36,25 @@ def authorize_gdrive_api():
   return drive 
 
 def create_new_gdrive_folder(drive):
+  # get the photobooth root folder id, or create one if it doesn't exist
+  pbr_id = None
+  list_query = "mimeType='%s' and trashed=false" % FOLDER_MIMETYPE
+  file_list = drive.files().list(q=list_query).execute()['files']
+  for file1 in file_list:
+    if file1['name'] == PHOTOBOOTH_ROOT:
+      pbr_id = file1['id']
+  if not pbr_id:
+    pbr_metadata = {
+      'name': "photobooth",
+      'mimeType' : FOLDER_MIMETYPE
+    }
+    pbr_id = drive.files().create(body=pbr_metadata, fields='id').execute()['id']
+
+  # create unique subfolder for photos
   folder_name = "photobooth-" + str(int(time.time()))
   file_metadata = {
     'name' : folder_name,
+    'parents' : [ pbr_id ],
     'mimeType' : FOLDER_MIMETYPE
   }
   return drive.files().create(body=file_metadata, fields='id').execute()
