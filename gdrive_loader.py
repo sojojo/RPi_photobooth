@@ -1,5 +1,6 @@
 from __future__ import print_function
 import os
+import time
 
 from apiclient.discovery import build
 from httplib2 import Http
@@ -12,12 +13,14 @@ except ImportError:
   flags = None
 
 SCOPES = 'https://www.googleapis.com/auth/drive.file'
-MIMETYPE = 'application/pdf'
+PDF_MIMETYPE = 'application/pdf'
+FOLDER_MIMETYPE = 'application/vnd.google-apps.folder'
+GDOCS_MIMETYPE = 'application/vnd.google-apps.document'
 
 # sample test files
 FILES = (
-  ('hello.txt', False),
-  ('hello.txt', True)
+  ('hello.txt', None),
+  ('hello.txt', GDOCS_MIMETYPE)
 )
 
 # authorization for GDrive API
@@ -28,32 +31,45 @@ def authorize_gdrive_api():
     flow = client.flow_from_clientsecrets('client_secret.json', SCOPES)
     creds = tools.run_flow(flow, store, flags) \
       if flags else tools.run(flow, store)
-  drive = build('drive', 'v2', http=creds.authorize(Http()))
+  drive = build('drive', 'v3', http=creds.authorize(Http()))
   return drive 
 
+def create_new_gdrive_folder(drive):
+  folder_name = "photobooth-" + str(int(time.time()))
+  file_metadata = {
+    'name' : folder_name,
+    'mimeType' : FOLDER_MIMETYPE
+  }
+  return drive.files().create(body=file_metadata, fields='id').execute()
 
-# upload the file (and convert if necessary)
-def upload_file_to_gdrive(drive, files):
-  for filename, convert in FILES:
-    metadata = {'title':filename}
-    res = drive.files().insert(convert=convert, body=metadata, media_body=filename, fields='mimeType,exportLinks').execute()
+
+# upload the files (and convert if necessary)
+def upload_files_to_gdrive(drive, files):
+  folder = create_new_gdrive_folder(drive)
+  folder_id = folder.get('id')
+  for filename, mimeType in FILES:
+    metadata = {'name':filename, 'parents': [ folder_id ]}
+    if mimeType:
+      metadata['mimeType'] = mimeType
+    res = drive.files().create(body=metadata, media_body=filename).execute()
     if res:
       print('Uploaded "%s" (%s)' % (filename, res['mimeType']))
+  # NOTE this just returns the most recent uploaded file
   return res
 
 # on successful upload
 def download_pdf_from_gdrive(res):
   if res:
-    res, data = drive._http.request(res['exportLinks'][MIMETYPE])
+    data = drive.files().export(fileId=res['id'], mimeType=PDF_MIMETYPE).execute()
     if data:
       # grab filename without extension
       fn = '%s.pdf' % os.path.splitext(filename)[0]
       # write text (binary) to local directory as pdf
       with open(fn, 'wb') as fh:
         fh.write(data)
-      print('Downloaded "%s" (%s)' % (fn, MIMETYPE))
+      print('Downloaded "%s" (%s)' % (fn, PDF_MIMETYPE))
 
 # TEST: standard order
 drive = authorize_gdrive_api()
-res = upload_file_to_gdrive(drive, None)
-download_pdf_from_gdrive(res)
+res = upload_files_to_gdrive(drive, None)
+# download_pdf_from_gdrive(res)
