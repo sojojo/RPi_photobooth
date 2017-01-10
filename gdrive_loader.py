@@ -11,15 +11,8 @@ try:
 except ImportError:
   flags = None
 
-# authorization for GDrive API
 SCOPES = 'https://www.googleapis.com/auth/drive.file'
-store = file.Storage('storage.json')
-creds = store.get()
-if not creds or creds.invalid:
-  flow = client.flow_from_clientsecrets('client_secret.json', SCOPES)
-  creds = tools.run_flow(flow, store, flags) \
-    if flags else tools.run(flow, store)
-DRIVE = build('drive', 'v2', http=creds.authorize(Http()))
+MIMETYPE = 'application/pdf'
 
 # sample test files
 FILES = (
@@ -27,21 +20,40 @@ FILES = (
   ('hello.txt', True)
 )
 
+# authorization for GDrive API
+def authorize_gdrive_api():
+  store = file.Storage('storage.json')
+  creds = store.get()
+  if not creds or creds.invalid:
+    flow = client.flow_from_clientsecrets('client_secret.json', SCOPES)
+    creds = tools.run_flow(flow, store, flags) \
+      if flags else tools.run(flow, store)
+  drive = build('drive', 'v2', http=creds.authorize(Http()))
+  return drive 
+
+
 # upload the file (and convert if necessary)
-for filename, convert in FILES:
-  metadata = {'title':filename}
-  res = DRIVE.files().insert(convert=convert, body=metadata, media_body=filename, fields='mimeType,exportLinks').execute()
-  if res:
-    print('Uploaded "%s" (%s)' % (filename, res['mimeType']))
+def upload_file_to_gdrive(drive, files):
+  for filename, convert in FILES:
+    metadata = {'title':filename}
+    res = drive.files().insert(convert=convert, body=metadata, media_body=filename, fields='mimeType,exportLinks').execute()
+    if res:
+      print('Uploaded "%s" (%s)' % (filename, res['mimeType']))
+  return res
 
 # on successful upload
-if res:
-  MIMETYPE = 'application/pdf'
-  res, data = DRIVE._http.request(res['exportLinks'][MIMETYPE])
-  if data:
-    # grab filename without extension
-    fn = '%s.pdf' % os.path.splitext(filename)[0]
-    # write text (binary) to local directory as pdf
-    with open(fn, 'wb') as fh:
-      fh.write(data)
-    print('Downloaded "%s" (%s)' % (fn, MIMETYPE))
+def download_pdf_from_gdrive(res):
+  if res:
+    res, data = drive._http.request(res['exportLinks'][MIMETYPE])
+    if data:
+      # grab filename without extension
+      fn = '%s.pdf' % os.path.splitext(filename)[0]
+      # write text (binary) to local directory as pdf
+      with open(fn, 'wb') as fh:
+        fh.write(data)
+      print('Downloaded "%s" (%s)' % (fn, MIMETYPE))
+
+# TEST: standard order
+drive = authorize_gdrive_api()
+res = upload_file_to_gdrive(drive, None)
+download_pdf_from_gdrive(res)
