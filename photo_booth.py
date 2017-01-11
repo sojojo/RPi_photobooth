@@ -1,6 +1,8 @@
 #!/usr/bin/python
 
 import RPi.GPIO as GPIO, time, os, subprocess
+import time
+import gdrive_loader as gdrive
 
 # GPIO setup
 GPIO.setmode(GPIO.BCM)
@@ -17,10 +19,15 @@ GPIO.setup(PRINT_LED, GPIO.OUT)
 GPIO.output(BUTTON_LED, True)
 GPIO.output(PRINT_LED, False)
 
+
+PHOTO_MIMETYPE = None
+''' PHOTO_MIMETYPE = "application/vnd.google-apps.photo"'''
+
 def run_photobooth():
   while True:
     if (GPIO.input(SWITCH) or raw_input() != None):
       snap = 0
+      photo_files =()
       while snap < 4:
         print("pose!")
         GPIO.output(BUTTON_LED, False)
@@ -40,7 +47,8 @@ def run_photobooth():
         print("SNAP")
 
         #take photo and save with gphoto2
-        photo_file = "/home/pi/photobooth_images/photobooth%H%M%S.jpg"
+        photo_file = "/home/pi/photobooth_images/photobooth%d.jpg" % int(time.time())
+        photo_files += ((photo_file,PHOTO_MIMETYPE),)
         gphoto2_capture_args = "gphoto2 --capture-image-and-download --filename  %s" % photo_file
         gpout = subprocess.check_output(gphoto2_capture_args, stderr=subprocess.STDOUT, shell=True)
         print(gpout)
@@ -48,6 +56,17 @@ def run_photobooth():
           snap += 1
         GPIO.output(POSE_LED, False)
         time.sleep(0.5)
+
+      # Google Drive uploading
+      print("files to upload")
+      print(photo_files)
+      print("connecting to Google Drive API..")
+      drive = gdrive.authorize_gdrive_api()
+      print("uploading photos..")
+      gdrive.upload_files_to_gdrive(drive, photo_files)
+      
+      # original printer stuff.
+      '''
       print("please wait while your photos print...")
       GPIO.output(PRINT_LED, True)
       # build image and send to printer
@@ -56,6 +75,7 @@ def run_photobooth():
       # Wait to ensure that print queue doesn't pile up
       # TODO: check status of printer instead of using this arbitrary wait time
       time.sleep(110)
+      '''
       print("ready for next round")
       GPIO.output(PRINT_LED, False)
       GPIO.output(BUTTON_LED, True)

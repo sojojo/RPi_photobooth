@@ -67,6 +67,7 @@ def upload_files_to_gdrive(drive, files=FILES):
   for filename, mimeType in files:
     metadata = {'name':filename, 'parents': [ folder_id ]}
     if mimeType:
+      print(mimeType)
       metadata['mimeType'] = mimeType
     res = drive.files().create(body=metadata, media_body=filename).execute()
     if res:
@@ -74,8 +75,8 @@ def upload_files_to_gdrive(drive, files=FILES):
   # NOTE this just returns the most recent uploaded file
   return res
 
-# on successful upload
-def download_pdf_from_gdrive(res):
+# from original source - used for text -> pdf conversion
+def download_pdf_from_gdrive(drive, res):
   if res:
     data = drive.files().export(fileId=res['id'], mimeType=PDF_MIMETYPE).execute()
     if data:
@@ -87,6 +88,8 @@ def download_pdf_from_gdrive(res):
       print('Downloaded "%s" (%s)' % (fn, PDF_MIMETYPE))
 
 # TEST: standard order
+'''
 drive = authorize_gdrive_api()
 res = upload_files_to_gdrive(drive)
 # download_pdf_from_gdrive(res)
+'''
