@@ -35,6 +35,37 @@ def authorize_gdrive_api():
   drive = build('drive', 'v3', http=creds.authorize(Http()))
   return drive 
 
+def callback(request_id, response, exception):
+  if exception:
+    print(exception)
+  else:
+    print("Permission Id: %s" % response.get('id'))
+
+# shareable to everyone
+def make_gdrive_shareable(drive, folder_id):
+  batch = drive.new_batch_http_request(callback=callback)
+  user_permission = {
+    'type': 'anyone',
+    'role': 'reader',
+  }
+
+  batch.add(drive.permissions().create(
+    fileId=folder_id,
+    body=user_permission,
+    fields='id'
+  ))
+  domain_permission = {
+  'type': 'anyone',
+  'role': 'reader',
+  }
+  batch.add(drive.permissions().create(
+    fileId=folder_id,
+    body=domain_permission,
+    fields='id'
+  ))
+  batch.execute()
+
+# create new gdrive folder with unique name and photobooth root (pbr)
 def create_new_gdrive_folder(drive):
   # get the photobooth root folder id, or create one if it doesn't exist
   pbr_id = None
@@ -57,13 +88,16 @@ def create_new_gdrive_folder(drive):
     'parents' : [ pbr_id ],
     'mimeType' : FOLDER_MIMETYPE
   }
-  return drive.files().create(body=file_metadata, fields='id').execute()
+  return drive.files().create(body=file_metadata, fields='webViewLink, id').execute()
 
 
 # upload the files (and convert if necessary)
 def upload_files_to_gdrive(drive, files=FILES):
   folder = create_new_gdrive_folder(drive)
   folder_id = folder.get('id')
+  folder_link = folder.get('webViewLink')
+  make_gdrive_shareable(drive, folder_id)
+  print("shareable folder link: %s" % folder_link)
   for filename, mimeType in files:
     metadata = {'name':filename, 'parents': [ folder_id ]}
     if mimeType:
