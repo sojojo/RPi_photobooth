@@ -1,8 +1,10 @@
 from __future__ import print_function
 import os
 import time
+from sys import argv
 
 from apiclient.discovery import build
+from googleapiclient import sample_tools
 from httplib2 import Http
 from oauth2client import file, client, tools
 
@@ -29,7 +31,7 @@ def authorize_gdrive_api():
   store = file.Storage('storage.json')
   creds = store.get()
   if not creds or creds.invalid:
-    flow = client.flow_from_clientsecrets('client_secret.json', SCOPES)
+    flow = client.flow_from_clientsecrets('client_secrets.json', SCOPES)
     creds = tools.run_flow(flow, store, flags) \
       if flags else tools.run(flow, store)
   drive = build('drive', 'v3', http=creds.authorize(Http()))
@@ -90,14 +92,30 @@ def create_new_gdrive_folder(drive):
   }
   return drive.files().create(body=file_metadata, fields='webViewLink, id').execute()
 
+def shorten_url(link):
+  service, flags = sample_tools.init(
+    argv, 'urlshortener', 'v1',__doc__,__file__, 
+    scope='https://www.googleapis.com/auth/urlshortener')
+  try:
+    url = service.url()
+
+    #Create a shortened URL by inserting the URL into the url collection
+    body = {'longUrl': link}
+    resp = url.insert(body=body).execute()
+    short_url = resp['id']
+  except client.AccessTokenRefreshError:
+    print ('The credentials have been revoked or expired, please re-run'
+      'the application to re-authorize')
+  return short_url
 
 # upload the files (and convert if necessary)
 def upload_files_to_gdrive(drive, files=FILES):
   folder = create_new_gdrive_folder(drive)
   folder_id = folder.get('id')
   folder_link = folder.get('webViewLink')
+  shortened_link = shorten_url(folder_link)
   make_gdrive_shareable(drive, folder_id)
-  print("shareable folder link: %s" % folder_link)
+  print("shareable folder link: %s" % shortened_link)
   for filename, mimeType in files:
     metadata = {'name':filename, 'parents': [ folder_id ]}
     if mimeType:
