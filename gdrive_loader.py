@@ -1,5 +1,4 @@
 from __future__ import print_function
-import os
 import time
 from sys import argv
 
@@ -13,6 +12,8 @@ try:
   flags = argparse.ArgumentParser(parents=[tools.argparser]).parse_args()
 except ImportError:
   flags = None
+
+DEBUG_ON = False
 
 SCOPES = 'https://www.googleapis.com/auth/drive.file'
 PDF_MIMETYPE = 'application/pdf'
@@ -28,6 +29,7 @@ FILES = (
 
 # authorization for GDrive API
 def authorize_gdrive_api():
+  print("\nconnecting to Google Drive API...")
   store = file.Storage('storage.json')
   creds = store.get()
   if not creds or creds.invalid:
@@ -41,7 +43,8 @@ def callback(request_id, response, exception):
   if exception:
     print(exception)
   else:
-    print("Permission Id: %s" % response.get('id'))
+    if DEBUG_ON:
+      print("Permission Id: %s" % response.get('id'))
 
 # shareable to everyone
 def make_gdrive_shareable(drive, folder_id):
@@ -92,6 +95,7 @@ def create_new_gdrive_folder(drive):
   }
   return drive.files().create(body=file_metadata, fields='webViewLink, id').execute()
 
+# use Google API to shorten long url to google drive for user convenience
 def shorten_url(link):
   service, flags = sample_tools.init(
     argv, 'urlshortener', 'v1',__doc__,__file__, 
@@ -113,13 +117,17 @@ def upload_files_to_gdrive(drive, files=FILES):
   folder = create_new_gdrive_folder(drive)
   folder_id = folder.get('id')
   folder_link = folder.get('webViewLink')
+  if DEBUG_ON:
+    print("files to upload:\n %s" % photo_files)
   shortened_link = shorten_url(folder_link)
   make_gdrive_shareable(drive, folder_id)
-  print("shareable folder link: %s" % shortened_link)
+  print("\nshareable folder link: %s\n" % shortened_link)
+  print("uploading photos..")
   for filename, mimeType in files:
     metadata = {'name':filename, 'parents': [ folder_id ]}
     if mimeType:
-      print(mimeType)
+      if DEBUG_ON:
+        print(mimeType)
       metadata['mimeType'] = mimeType
     res = drive.files().create(body=metadata, media_body=filename).execute()
     if res:
@@ -127,21 +135,8 @@ def upload_files_to_gdrive(drive, files=FILES):
   # NOTE this just returns the most recent uploaded file
   return res
 
-# from original source - used for text -> pdf conversion
-def download_pdf_from_gdrive(drive, res):
-  if res:
-    data = drive.files().export(fileId=res['id'], mimeType=PDF_MIMETYPE).execute()
-    if data:
-      # grab filename without extension
-      fn = '%s.pdf' % os.path.splitext(filename)[0]
-      # write text (binary) to local directory as pdf
-      with open(fn, 'wb') as fh:
-        fh.write(data)
-      print('Downloaded "%s" (%s)' % (fn, PDF_MIMETYPE))
-
 # TEST: standard order
 '''
 drive = authorize_gdrive_api()
 res = upload_files_to_gdrive(drive)
-# download_pdf_from_gdrive(res)
 '''
